@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from .models import Asset
 from .serializers import AssetSerializer
 from .mongo import metadata_collection
-
+from .tasks import process_asset_task
 
 class AssetViewSet(viewsets.ModelViewSet):
     serializer_class = AssetSerializer
@@ -16,14 +16,18 @@ class AssetViewSet(viewsets.ModelViewSet):
         return Asset.objects.filter(owner=user).order_by('-created_at')
 
     def perform_create(self, serializer):
-        asset = serializer.save(owner=self.request.user)
-        # Створюємо базовий початковий документ у MongoDB для цього файлу
-        metadata_collection.insert_one({
-            "asset_id": asset.id,
-            "tags": [],
-            "custom_attributes": {},
-            "processing_logs": ["Asset record created in SQLite"]
-        })
+            asset = serializer.save(owner=self.request.user)
+            # Створюємо базовий початковий документ у MongoDB
+            metadata_collection.insert_one({
+                "asset_id": asset.id,
+                "tags": [],
+                "custom_attributes": {},
+                "processing_logs": ["Asset record created in SQLite"]
+            })
+            
+            # Відправляємо задачу у чергу Celery!
+            # .delay() не блокує виконання коду, а миттєво віддає id задачі в RabbitMQ
+            process_asset_task.delay(asset.id)
 
     def retrieve(self, request, *args, **kwargs):
         # Перевизначаємо отримання одного запису (GET /api/assets/{id}/)
