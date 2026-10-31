@@ -16,11 +16,26 @@ services:
     container_name: asset_rabbitmq
     restart: always
     ports:
-      - "5672:5672"   # порт для підключення Celery (AMQP)
-      - "15672:15672" # веб-інтерфейс RabbitMQ у браузері
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
 
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: asset_minio
+    restart: always
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+
 volumes:
   mongo_data:
+  minio_data:
